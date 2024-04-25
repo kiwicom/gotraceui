@@ -4,6 +4,7 @@ import (
 	"context"
 	rtrace "runtime/trace"
 
+	"gioui.org/io/event"
 	"honnef.co/go/gotraceui/color"
 	"honnef.co/go/gotraceui/layout"
 	"honnef.co/go/gotraceui/widget"
@@ -84,7 +85,7 @@ func (w *ListWindow) Layout(win *Window, gtx layout.Context) layout.Dimensions {
 	defer rtrace.StartRegion(context.Background(), "theme.ListWindow.Layout").End()
 	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 
-	key.InputOp{Tag: w, Keys: editorKeyset}.Add(gtx.Ops)
+	event.Op(gtx.Ops, w)
 
 	var spy *eventx.Spy
 
@@ -206,7 +207,12 @@ func (w *ListWindow) Layout(win *Window, gtx layout.Context) layout.Dimensions {
 		}
 	}
 
-	for _, ev := range gtx.Events(w) {
+	//for _, ev := range gtx.Events(w) {
+	for {
+		ev, ok := gtx.Event()
+		if !ok {
+			break
+		}
 		switch ev := ev.(type) {
 		case key.Event:
 			handleKey(ev)

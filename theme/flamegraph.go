@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"gioui.org/io/event"
 	"honnef.co/go/gotraceui/clip"
 	"honnef.co/go/gotraceui/color"
 	"honnef.co/go/gotraceui/gesture"
@@ -165,7 +166,7 @@ func (fg FlameGraphStyle) Layout(win *Window, gtx layout.Context) (dims layout.D
 	}
 
 	defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
-	key.InputOp{Tag: fg.StyleState, Keys: "Short-Z"}.Add(gtx.Ops)
+	event.Op(gtx.Ops, fg.StyleState)
 	fg.StyleState.hover.Update(gtx.Queue)
 
 	var trackClicked bool
@@ -177,7 +178,14 @@ func (fg FlameGraphStyle) Layout(win *Window, gtx layout.Context) (dims layout.D
 		}
 	}
 
-	for _, ev := range gtx.Events(fg.StyleState) {
+	for {
+		ev, ok := gtx.Event(key.Filter{
+			Focus: fg.StyleState,
+			Name:  "Short-Z",
+		})
+		if !ok {
+			break
+		}
 		if ev, ok := ev.(key.Event); ok && ev.State == key.Press && ev.Modifiers == key.ModShortcut && ev.Name == "Z" {
 			var (
 				prev fgZoom

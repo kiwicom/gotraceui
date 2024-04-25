@@ -217,6 +217,7 @@ func (dwin *DebugWindow) Run(win *app.Window) error {
 			return ev.Err
 		case system.FrameEvent:
 			twin.Layout(&ops, ev, func(win *theme.Window, gtx layout.Context) layout.Dimensions {
+				defer gtx.Execute(op.InvalidateCmd{})
 				themeWidget := func(fn func(win *theme.Window, gtx layout.Context) layout.Dimensions) layout.Widget {
 					return func(gtx layout.Context) layout.Dimensions { return fn(twin, gtx) }
 				}
@@ -231,7 +232,6 @@ func (dwin *DebugWindow) Run(win *app.Window) error {
 					layout.Flexed(1, themeWidget(dwin.frametimes.Layout)),
 				)
 			})
-			op.InvalidateOp{}.Add(&ops)
 			ev.Frame(&ops)
 		}
 	}

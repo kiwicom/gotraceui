@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"gioui.org/io/event"
 	myclip "honnef.co/go/gotraceui/clip"
 	"honnef.co/go/gotraceui/layout"
 	"honnef.co/go/gotraceui/theme"
@@ -144,7 +145,14 @@ func (hm *Heatmap) Layout(win *theme.Window, gtx layout.Context) layout.Dimensio
 	// TODO(dh): add scrollable X axis
 
 	dims := gtx.Constraints.Max
-	for _, e := range gtx.Events(hm) {
+	for {
+		e, ok := gtx.Event(pointer.Filter{
+			Target: hm,
+			Kinds:  pointer.Move,
+		})
+		if !ok {
+			break
+		}
 		ev := e.(pointer.Event)
 		hm.pointer = ev.Position
 		hm.pointerConstraint = dims
@@ -178,7 +186,7 @@ func (hm *Heatmap) Layout(win *theme.Window, gtx layout.Context) layout.Dimensio
 		// Use a white background, instead of the yellowish one we use everywhere else, to improve contrast and
 		// legibility.
 		theme.Fill(win, &hm.cachedOps, oklch(100, 0, 0))
-		pointer.InputOp{Tag: hm, Kinds: pointer.Move}.Add(&hm.cachedOps)
+		event.Op(&hm.cachedOps, hm)
 
 		max := 0
 		for _, v := range hm.data {
@@ -342,7 +350,32 @@ func (hmc *HeatmapComponent) Layout(win *theme.Window, gtx layout.Context) layou
 		hmc.hm.UseLinearColors = hmc.useLinear.Value
 	}
 
-	for _, e := range gtx.Events(hmc) {
+	for {
+		e, ok := gtx.Event(
+			key.FocusFilter{
+				Target: hmc,
+			},
+			key.Filter{
+				Focus: hmc,
+				Name:  "↑",
+			},
+			key.Filter{
+				Focus: hmc,
+				Name:  "↓",
+			},
+			key.Filter{
+				Focus: hmc,
+				Name:  "←",
+			},
+			key.Filter{
+				Focus: hmc,
+				Name:  "→",
+			},
+		)
+		if !ok {
+			break
+		}
+
 		if ev, ok := e.(key.Event); ok && ev.State == key.Press {
 			// TODO(dh): provide visual feedback, displaying the bucket size
 			switch ev.Name {
@@ -371,8 +404,7 @@ func (hmc *HeatmapComponent) Layout(win *theme.Window, gtx layout.Context) layou
 		}
 	}
 
-	key.InputOp{Tag: hmc, Keys: "↑|↓|←|→"}.Add(gtx.Ops)
-	key.FocusOp{Tag: hmc}.Add(gtx.Ops)
+	event.Op(gtx.Ops, hmc)
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {

@@ -70,7 +70,7 @@ func (g *GIF) Layout(gtx layout.Context, dir layout.Direction) layout.Dimensions
 	}
 
 	// OPT(dh): set invalidation in time for next frame
-	op.InvalidateOp{}.Add(gtx.Ops)
+	gtx.Execute(op.InvalidateCmd{})
 
 	// OPT(dh): cache image ops
 	// OPT(dh): Gio deletes a texture from the GPU if it hasn't been used in a single frame. That is, of course,

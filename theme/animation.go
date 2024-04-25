@@ -39,7 +39,7 @@ func (anim *Animation[T]) Start(gtx layout.Context, v1, v2 T, d time.Duration, e
 	anim.Duration = d
 	anim.Ease = ease
 	anim.active = true
-	defer op.InvalidateOp{}.Add(gtx.Ops)
+	gtx.Execute(op.InvalidateCmd{})
 }
 
 func StartSimpleAnimation[T constraints.Integer | constraints.Float](gtx layout.Context, anim *Animation[T], v1, v2 T, d time.Duration, ease EasingFunction) {
@@ -59,7 +59,7 @@ func (anim *Animation[T]) Value(gtx layout.Context) T {
 	}
 
 	ratio := anim.Ease(float64(d) / float64(anim.Duration))
-	op.InvalidateOp{}.Add(gtx.Ops)
+	gtx.Execute(op.InvalidateCmd{})
 
 	if anim.Lerp == nil {
 		if lerper, ok := any(anim.StartValue).(Lerper[T]); ok {

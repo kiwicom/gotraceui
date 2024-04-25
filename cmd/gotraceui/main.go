@@ -23,6 +23,7 @@ import (
 	"time"
 	"unicode"
 
+	"gioui.org/io/event"
 	"honnef.co/go/gotraceui/cmd/gotraceui/assets"
 	"honnef.co/go/gotraceui/color"
 	"honnef.co/go/gotraceui/container"
@@ -39,7 +40,6 @@ import (
 	"gioui.org/f32"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
-	"gioui.org/io/profile"
 	"gioui.org/io/system"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -631,13 +631,13 @@ func (mwin *MainWindow) Run() error {
 	var frameCounter uint64
 
 	for {
-		e := win.NextEvent()
+		e := win.Event()
 		mwin.explorer.ListenEvents(e)
 
 		switch ev := e.(type) {
-		case system.DestroyEvent:
+		case app.DestroyEvent:
 			return ev.Err
-		case system.FrameEvent:
+		case app.FrameEvent:
 			if measureFrameAllocs {
 				frameCounter++
 				if frameCounter%60 == 0 {
@@ -656,7 +656,14 @@ func (mwin *MainWindow) Run() error {
 					mwin.openLink(gtx, l)
 				}
 
-				for _, ev := range gtx.Events(&mwin.pointerAt) {
+				for {
+					ev, ok := gtx.Event(pointer.Filter{
+						Target: &mwin.pointerAt,
+						Kinds:  pointer.Move | pointer.Drag | pointer.Enter,
+					})
+					if !ok {
+						break
+					}
 					mwin.pointerAt = ev.(pointer.Event).Position
 				}
 
@@ -776,24 +783,6 @@ func (mwin *MainWindow) Run() error {
 					mwin.showFileOpenDialog()
 				}
 
-				for _, ev := range gtx.Events(profileTag) {
-					// Yup, profile.Event only contains a string. No structured access to data.
-					fields := strings.Fields(ev.(profile.Event).Timings)
-					if len(fields) > 0 && strings.HasPrefix(fields[0], "tot:") {
-						var s string
-						if fields[0] == "tot:" {
-							s = fields[1]
-						} else {
-							s = strings.TrimPrefix(fields[0], "tot:")
-						}
-						// Either it parses fine, or d is undefined and will likely be obvious in the debug grpah.
-						d, _ := time.ParseDuration(s)
-						// We're using gtx.Now because events don't have timestamps associated with them. Hopefully
-						// event creation isn't too far removed from this code.
-						mwin.debugWindow.frametimes.addValue(gtx.Now, float64(d)/float64(time.Millisecond))
-					}
-				}
-
 				closedAny := false
 				for _, click := range mwin.tabbedState.Update(gtx) {
 					if click.Click.Button == pointer.ButtonTertiary {
@@ -817,16 +806,14 @@ func (mwin *MainWindow) Run() error {
 			})
 
 			mwin.twin.Layout(&ops, ev, func(win *theme.Window, gtx layout.Context) layout.Dimensions {
+				if invalidateFrames {
+					defer gtx.Execute(op.InvalidateCmd{})
+				}
+
 				defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 				gtx.Constraints.Min = image.Point{}
 
-				pointer.InputOp{Tag: &mwin.pointerAt, Kinds: pointer.Move | pointer.Drag | pointer.Enter}.Add(gtx.Ops)
-
-				if debug {
-					// Profiling uses fmt.Sprintf, which allocates. We'll never see the results outside of a debug
-					// build.
-					profile.Op{Tag: profileTag}.Add(gtx.Ops)
-				}
+				event.Op(gtx.Ops, &mwin.pointerAt)
 
 				// Fill background
 				theme.Fill(win, gtx.Ops, mwin.twin.Theme.Palette.Background)
@@ -860,10 +847,6 @@ func (mwin *MainWindow) Run() error {
 					return layout.Dimensions{}
 				}
 			})
-
-			if invalidateFrames {
-				op.InvalidateOp{}.Add(&ops)
-			}
 
 			ev.Frame(&ops)
 		}
@@ -903,7 +886,7 @@ func (mwin *MainWindow) renderLoadingTraceScene(win *theme.Window, gtx layout.Co
 	paint.ColorOp{Color: mwin.twin.ConvertColor(mwin.twin.Theme.Palette.Foreground)}.Add(gtx.Ops)
 
 	// Redraw continuously to show progress updates
-	op.InvalidateOp{}.Add(gtx.Ops)
+	gtx.Execute(op.InvalidateCmd{})
 
 	// OPT(dh): only compute this once
 	var maxNameWidth int
@@ -1055,7 +1038,7 @@ func (mwin *MainWindow) renderMainScene(win *theme.Window, gtx layout.Context, s
 					break
 				} else {
 					// Make sure we recheck the need for a dancing gopher.
-					op.InvalidateOp{At: gtx.Now.Add(100 * time.Millisecond)}.Add(gtx.Ops)
+					gtx.Execute(op.InvalidateCmd{At: gtx.Now.Add(100 * time.Millisecond)})
 				}
 			}
 		}
@@ -1069,7 +1052,7 @@ func (mwin *MainWindow) renderMainScene(win *theme.Window, gtx layout.Context, s
 		if g, ok := tl.item.(*ptrace.Goroutine); ok {
 			mwin.openGoroutine(g)
 			// FIXME(dh): canvas does event handling _after_ layout, so we need a second frame
-			op.InvalidateOp{}.Add(gtx.Ops)
+			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
 	for _, tl := range mwin.canvas.rightClickedTimelines {
@@ -1080,7 +1063,7 @@ func (mwin *MainWindow) renderMainScene(win *theme.Window, gtx layout.Context, s
 	for _, clicked := range mwin.canvas.clickedSpans {
 		mwin.openSpan(clicked)
 		// FIXME(dh): canvas does event handling _after_ layout, so we need a second frame
-		op.InvalidateOp{}.Add(gtx.Ops)
+		gtx.Execute(op.InvalidateCmd{})
 	}
 
 	return dims

@@ -8,6 +8,7 @@ import (
 	rtrace "runtime/trace"
 	"time"
 
+	"gioui.org/io/event"
 	"honnef.co/go/gotraceui/clip"
 	"honnef.co/go/gotraceui/color"
 	"honnef.co/go/gotraceui/gesture"
@@ -87,7 +88,18 @@ func (hs *HistogramState) Update(gtx layout.Context) (start, end widget.FloatDur
 		trackDragEnd   bool
 	)
 
-	for _, ev := range gtx.Events(hs) {
+	// pointer.InputOp{Tag: hs.State, Kinds: pointer.Press | pointer.Release | pointer.Drag | pointer.Cancel}.Add(gtx.Ops)
+	//for _, ev := range gtx.Events(hs) {
+	for {
+		ev, ok := gtx.Event(
+			pointer.Filter{
+				Target: hs.State,
+				Kinds:  pointer.Press | pointer.Release | pointer.Drag | pointer.Cancel,
+			},
+		)
+		if !ok {
+			break
+		}
 		if ev, ok := ev.(pointer.Event); ok {
 			switch ev.Kind {
 			case pointer.Press:
@@ -361,7 +373,7 @@ func (hs HistogramStyle) Layout(win *Window, gtx layout.Context) layout.Dimensio
 		gtx.Constraints.Min = image.Point{plotWidth, plotHeight}
 		gtx.Constraints.Max = gtx.Constraints.Min
 
-		pointer.InputOp{Tag: hs.State, Kinds: pointer.Press | pointer.Release | pointer.Drag | pointer.Cancel}.Add(gtx.Ops)
+		event.Op(gtx.Ops, hs.State)
 		hs.State.click.Add(gtx.Ops)
 		hs.State.hover.Add(gtx.Ops)
 

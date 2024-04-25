@@ -435,7 +435,7 @@ func (notif *notification) Layout(win *Window, gtx layout.Context) layout.Dimens
 	defer op.Offset(image.Pt(gtx.Constraints.Max.X/2-dims.Size.X/2, gtx.Constraints.Max.Y-dims.Size.Y-gtx.Dp(30))).Push(gtx.Ops).Pop()
 	call.Add(gtx.Ops)
 
-	op.InvalidateOp{At: notif.shownAt.Add(1000 * time.Millisecond)}.Add(gtx.Ops)
+	gtx.Execute(op.InvalidateCmd{At: notif.shownAt.Add(1000 * time.Millisecond)})
 
 	return dims
 }

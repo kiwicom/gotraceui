@@ -770,7 +770,14 @@ func (cv *Canvas) Layout(win *theme.Window, gtx layout.Context) layout.Dimension
 		}
 	}
 
-	for _, ev := range gtx.Events(cv) {
+	for {
+		ev, ok := gtx.Event(pointer.Filter{
+			Target: cv,
+			Kinds:  pointer.Move | pointer.Scroll,
+		})
+		if !ok {
+			break
+		}
 		switch ev := ev.(type) {
 		case pointer.Event:
 			switch ev.Kind {
@@ -1149,7 +1156,7 @@ func (cv *Canvas) Layout(win *theme.Window, gtx layout.Context) layout.Dimension
 		if ts, ok := tl.widget.NavigatedTimeSpan().Get(); ok {
 			cv.navigateToStartAndEnd(gtx, ts.Start, ts.End, cv.y)
 			// FIXME(dh): canvas does event handling _after_ layout, so we need a second frame
-			op.InvalidateOp{}.Add(gtx.Ops)
+			gtx.Execute(op.InvalidateCmd{})
 			break
 		}
 	}

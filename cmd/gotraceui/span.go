@@ -272,7 +272,7 @@ func (si *SpansInfo) buildDefaultDescription(win *theme.Window, gtx layout.Conte
 		a.Value = *tb.Span(v.String())
 	} else {
 		a.Value = *tb.Span(textSpinner(gtx.Now))
-		op.InvalidateOp{}.Add(gtx.Ops)
+		gtx.Execute(op.InvalidateCmd{})
 	}
 	attrs = append(attrs, a)
 
@@ -291,7 +291,7 @@ func (si *SpansInfo) buildDefaultDescription(win *theme.Window, gtx layout.Conte
 		a.Value = *tb.Span(v)
 	} else {
 		a.Value = *tb.Span(textSpinner(gtx.Now))
-		op.InvalidateOp{}.Add(gtx.Ops)
+		gtx.Execute(op.InvalidateCmd{})
 	}
 	attrs = append(attrs, a)
 
@@ -595,7 +595,7 @@ func (si *SpansInfo) Layout(win *theme.Window, gtx layout.Context) layout.Dimens
 			layout.Spacer{Height: 10}.Layout,
 			func(gtx layout.Context) layout.Dimensions {
 				l := "Collecting spans" + textSpinner(gtx.Now)
-				op.InvalidateOp{}.Add(gtx.Ops)
+				gtx.Execute(op.InvalidateCmd{})
 				return theme.Label(win.Theme, l).Layout(win, gtx)
 			},
 		)
